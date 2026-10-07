@@ -206,13 +206,13 @@ function drawBug(m, t){
   g.addColorStop(0,'rgba(255,79,163,.28)'); g.addColorStop(1,'rgba(255,79,163,0)');
   ctx.fillStyle=g; ctx.fillRect(0,0,360,280);
 
-  // twintails
+  // twintails (hanging down at the sides of the head)
   ctx.fillStyle='#ff7fbf';
-  ctx.beginPath(); ctx.ellipse(cx-72, cy-38+bob*.6, 26, 44, -.25, 0, 7); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(cx+72, cy-38+bob*.6, 26, 44,  .25, 0, 7); ctx.fill();
-  // ladybug clips
+  ctx.beginPath(); ctx.ellipse(cx-66, cy+8+bob*.5, 24, 46, -.18, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx+66, cy+8+bob*.5, 24, 46,  .18, 0, 7); ctx.fill();
+  // ladybug clips (right where the twintails attach)
   for(const sx of [-1,1]){
-    const lx = cx+sx*72, ly = cy-70+bob*.6;
+    const lx = cx+sx*58, ly = cy-30+bob*.5;
     ctx.fillStyle='#e02424'; ctx.beginPath(); ctx.arc(lx,ly,13,0,7); ctx.fill();
     ctx.fillStyle='#111';
     ctx.beginPath(); ctx.arc(lx-4,ly-3,2.6,0,7); ctx.fill();
