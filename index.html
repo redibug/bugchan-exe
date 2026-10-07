@@ -119,6 +119,29 @@ const bsod = document.getElementById('bsod');
 const S = { data:70, stab:70, aff:60, alive:true, t:0, blink:0, sayCd:0 };
 const particles = [];
 
+/* ---------- localStorage persistence ---------- */
+const SAVE_KEY = 'bugchan-exe-save-v1';
+function save(){
+  try{
+    localStorage.setItem(SAVE_KEY, JSON.stringify(
+      { data:S.data, stab:S.stab, aff:S.aff, t:S.t, alive:S.alive }));
+  }catch(e){}
+}
+function load(){
+  try{
+    const d = JSON.parse(localStorage.getItem(SAVE_KEY));
+    if(!d) return false;
+    S.data = Math.min(100, Math.max(0, +d.data || 0));
+    S.stab = Math.min(100, Math.max(0, +d.stab || 0));
+    S.aff  = Math.min(100, Math.max(0, +d.aff  || 0));
+    S.t    = Math.max(0, Math.floor(+d.t || 0));
+    S.alive = d.alive !== false && S.stab > 0;
+    return true;
+  }catch(e){ return false; }
+}
+window.addEventListener('beforeunload', save);
+document.addEventListener('visibilitychange', ()=>{ if(document.hidden) save(); });
+
 /* ---------- tiny synth ---------- */
 let AC = null;
 function beep(freq, dur, type, when){
@@ -185,7 +208,9 @@ document.getElementById('btn-debug').onclick = debug;
 document.getElementById('btn-cuddle').onclick = cuddle;
 document.getElementById('btn-reboot').onclick = ()=>{
   S.data=70; S.stab=70; S.aff=60; S.alive=true; S.sayCd=0;
-  particles.length=0; bsod.hidden=true; sfx.boot();
+  S.t=0; // uptime resets — a reboot is a brand-new life
+  document.getElementById('uptime').textContent = 'uptime 00:00';
+  particles.length=0; bsod.hidden=true; sfx.boot(); save();
   say("ただいま！ やっぱり melには わたしが ひつようだね♡");
 };
 
@@ -303,6 +328,7 @@ setInterval(()=>{
   if(S.stab<=0){
     S.alive=false; sfx.crash(); bsod.hidden=false;
     stage.classList.remove('glitch');
+    save(); // remember she's crashed, even if the tab closes
     return;
   }
   const m = mood();
@@ -314,13 +340,27 @@ setInterval(()=>{
     const pool = LINES[m] || LINES.idle;
     sayRandom(pool);
   }
+  if(S.t % 5 === 0) save(); // persist every 5 seconds
 }, 1000);
 
 (function anim(){
   drawBug(mood(), performance.now()/16|0);
   requestAnimationFrame(anim);
 })();
-setBar('bar-data', S.data); setBar('bar-stab', S.stab); setBar('bar-aff', S.aff);
+
+/* ---------- boot: pick up where we left off ---------- */
+(function boot(){
+  const had = load();
+  setBar('bar-data', S.data); setBar('bar-stab', S.stab); setBar('bar-aff', S.aff);
+  document.getElementById('uptime').textContent =
+    'uptime '+String(Math.floor(S.t/60)).padStart(2,'0')+':'+String(S.t%60).padStart(2,'0');
+  if(had && !S.alive){
+    // she crashed before the tab closed — still waiting to be woken
+    bsod.hidden = false;
+  } else if(had && S.t > 0){
+    say("おかえり！ まってたよ♡");
+  }
+})();
 </script>
 </body>
 </html>
