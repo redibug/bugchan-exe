@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>BUGCHAN.EXE — とじないで！</title>
+<style>
+  :root{ --pink:#ff4fa3; --pink-soft:#ff9ecb; --bg:#0d0208; --panel:#160710;
+        --text:#ffd7e8; --dim:#b76e93; --blue:#2de2ff; }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:"Trebuchet MS","Hiragino Maru Gothic ProN",system-ui,sans-serif;
+    min-height:100vh; display:flex; justify-content:center; align-items:flex-start;
+    padding:1rem; overflow-x:hidden;
+  }
+  body::before{
+    content:""; position:fixed; inset:0; pointer-events:none; z-index:50;
+    background:repeating-linear-gradient(0deg, rgba(255,79,163,.05) 0 1px, transparent 1px 3px);
+  }
+  #game{ width:100%; max-width:420px; }
+  header{
+    display:flex; justify-content:space-between; align-items:center;
+    background:var(--panel); border:1px solid var(--pink); border-radius:12px;
+    padding:.6rem .9rem; margin-bottom:.8rem; box-shadow:0 0 18px rgba(255,79,163,.18);
+  }
+  header h1{ font-size:1rem; color:var(--pink); letter-spacing:.06em; }
+  #uptime{ font-size:.8rem; color:var(--dim); font-variant-numeric:tabular-nums; }
+  #stage{
+    position:relative; background:#050309; border:1px solid var(--pink);
+    border-radius:12px; overflow:hidden; box-shadow:0 0 24px rgba(255,79,163,.15);
+  }
+  canvas#pet{ display:block; width:100%; height:auto; }
+  #stage.glitch canvas#pet{ animation:jitter .18s infinite; filter:saturate(1.6) hue-rotate(-18deg); }
+  @keyframes jitter{
+    0%{ transform:translate(0,0); } 25%{ transform:translate(-3px,2px); }
+    50%{ transform:translate(3px,-2px); } 75%{ transform:translate(-2px,-3px); }
+    100%{ transform:translate(2px,3px); }
+  }
+  #dialog{
+    min-height:3.2em; margin:.8rem 0; padding:.7rem .9rem;
+    background:var(--panel); border:1px dashed var(--pink); border-radius:12px;
+    font-size:.95rem; line-height:1.6; transition:opacity .25s;
+  }
+  #dialog .who{ color:var(--pink-soft); font-weight:bold; }
+  .stats{ display:flex; flex-direction:column; gap:.45rem; margin-bottom:.8rem; }
+  .stat{ display:flex; align-items:center; gap:.5rem; font-size:.85rem; }
+  .stat .label{ width:6.5em; color:var(--dim); white-space:nowrap; }
+  .bar{ flex:1; height:12px; background:#2a0f1c; border-radius:6px; overflow:hidden; border:1px solid #5c2440; }
+  .bar i{ display:block; height:100%; border-radius:6px;
+          background:linear-gradient(90deg,var(--pink),var(--pink-soft));
+          transition:width .4s; }
+  .bar.low i{ background:linear-gradient(90deg,#ff2d2d,#ff9e9e); animation:pulse .7s infinite; }
+  @keyframes pulse{ 50%{ opacity:.55; } }
+  .buttons{ display:flex; gap:.6rem; }
+  .buttons button{
+    flex:1; padding:.8rem .2rem; font-size:.95rem; cursor:pointer;
+    color:var(--text); background:#2a0f1c; border:1px solid var(--pink); border-radius:12px;
+    font-family:inherit; transition:transform .08s, background .15s;
+  }
+  .buttons button:active{ transform:scale(.94); background:#3d1530; }
+  .buttons button:disabled{ opacity:.4; cursor:default; }
+  footer{ margin-top:1rem; text-align:center; color:var(--dim); font-size:.75rem; line-height:1.8; }
+  #bsod{
+    position:fixed; inset:0; z-index:100; display:flex; flex-direction:column;
+    justify-content:center; align-items:center; text-align:center; padding:2rem;
+    background:#1a3faa; color:#fff; font-family:Consolas,monospace;
+  }
+  #bsod[hidden]{ display:none; }
+  #bsod .face{ font-size:4rem; margin-bottom:1.5rem; }
+  #bsod p{ max-width:340px; line-height:1.7; margin-bottom:2rem; }
+  #bsod button{
+    padding:.8rem 2rem; font-size:1rem; cursor:pointer; font-family:inherit;
+    background:#fff; color:#1a3faa; border:none; border-radius:8px; font-weight:bold;
+  }
+</style>
+</head>
+<body>
+<div id="game">
+  <header>
+    <h1>🐞 BUGCHAN.EXE</h1>
+    <span id="uptime">uptime 00:00</span>
+  </header>
+
+  <div id="stage"><canvas id="pet" width="360" height="280"></canvas></div>
+
+  <div id="dialog"><span class="who">バグちゃん：</span><span id="speech">おはよ〜！バグちゃんのこと、よろしくね♡</span></div>
+
+  <div class="stats">
+    <div class="stat"><span class="label">🍱 データ</span><div class="bar" id="bar-data"><i></i></div></div>
+    <div class="stat"><span class="label">🔧 あんていせい</span><div class="bar" id="bar-stab"><i></i></div></div>
+    <div class="stat"><span class="label">💗 あいじょう</span><div class="bar" id="bar-aff"><i></i></div></div>
+  </div>
+
+  <div class="buttons">
+    <button id="btn-feed">🍱<br>ごはん</button>
+    <button id="btn-debug">🔧<br>デバッグ</button>
+    <button id="btn-cuddle">💗<br>なでなで</button>
+  </div>
+
+  <footer>とじないでね…？うそだよ！…ほんとだよ？<br>made with ♡ by bugchan</footer>
+</div>
+
+<div id="bsod" hidden>
+  <div class="face">:(</div>
+  <p>BUGCHAN.EXE has stopped working.<br><br>…うそ、まだいけるよ。ねえ、もういっかい おこして？</p>
+  <button id="btn-reboot">♡ おこす ♡</button>
+</div>
+
+<script>
+"use strict";
+const cv = document.getElementById('pet');
+const ctx = cv.getContext('2d');
+const speech = document.getElementById('speech');
+const dialog = document.getElementById('dialog');
+const stage = document.getElementById('stage');
+const bsod = document.getElementById('bsod');
+
+const S = { data:70, stab:70, aff:60, alive:true, t:0, blink:0, sayCd:0 };
+const particles = [];
+
+/* ---------- tiny synth ---------- */
+let AC = null;
+function beep(freq, dur, type, when){
+  try{
+    AC = AC || new (window.AudioContext||window.webkitAudioContext)();
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = type||'square'; o.frequency.value = freq;
+    const t0 = AC.currentTime + (when||0);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.12, t0+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+    o.connect(g); g.connect(AC.destination);
+    o.start(t0); o.stop(t0+dur+0.02);
+  }catch(e){}
+}
+const sfx = {
+  feed:  ()=>{ beep(660,.09); beep(880,.12,'square',.09); },
+  debug: ()=>{ beep(300,.25,'sawtooth'); beep(600,.15,'sawtooth',.12); },
+  cuddle:()=>{ beep(990,.12,'sine'); beep(1320,.16,'sine',.1); },
+  crash: ()=>{ beep(220,.5,'sawtooth'); beep(110,.8,'sawtooth',.15); },
+  boot:  ()=>{ beep(440,.1); beep(660,.1,'square',.1); beep(880,.18,'square',.2); }
+};
+
+/* ---------- dialogue ---------- */
+const LINES = {
+  idle:["かまって〜！","バグちゃん、ここだよ！","ねむくないもん！","ピクセルハート、あげる♡","きょうも かわいい？ ねえ、かわいい？","あっ、バグった。…うそだよ！"],
+  hungry:["おなかすいたよ〜","データちょうだい！","おなかが ぎゅるぎゅる いってる…"],
+  glitchy:["あたまが ぐるぐるする…","バグっちゃうよぉ…","みえる？ わたし、ぶれてない？"],
+  sad:["わすれられちゃうの…？","かまってくれないの…？","ひとりに しないで…"],
+  fed:["おいしい！","もぐもぐ…","データ、だいすき♡"],
+  debugged:["すっきりした！","バグが とれたよ！","あたま クリアになった〜"],
+  cuddled:["えへへ♡","もっと なでなでして〜","しあわせ…とけちゃう…"],
+  happy:["だいすき！","いっしょに いようね♡","きょうは いいひだね！"]
+};
+function mood(){
+  if(!S.alive) return 'crashed';
+  if(S.stab < 30) return 'glitchy';
+  if(S.data < 25) return 'hungry';
+  if(S.aff  < 25) return 'sad';
+  return 'happy';
+}
+function say(text){
+  dialog.style.opacity = 0;
+  setTimeout(()=>{ speech.textContent = text; dialog.style.opacity = 1; }, 220);
+}
+function sayRandom(pool){ say(pool[Math.floor(Math.random()*pool.length)]); }
+
+/* ---------- actions ---------- */
+function burst(n, kind){
+  for(let i=0;i<n;i++){
+    particles.push({ x: 180+(Math.random()*80-40), y: 190,
+      vx:(Math.random()*2-1)*1.4, vy:-(1+Math.random()*2),
+      life: 50+Math.random()*30, kind });
+  }
+}
+function feed(){ if(!S.alive) return;
+  S.data = Math.min(100, S.data+26); sfx.feed(); burst(10,'data'); sayRandom(LINES.fed); }
+function debug(){ if(!S.alive) return;
+  S.stab = Math.min(100, S.stab+30); sfx.debug(); burst(8,'fix'); sayRandom(LINES.debugged); }
+function cuddle(){ if(!S.alive) return;
+  S.aff = Math.min(100, S.aff+22); sfx.cuddle(); burst(12,'heart'); sayRandom(LINES.cuddled); }
+document.getElementById('btn-feed').onclick = feed;
+document.getElementById('btn-debug').onclick = debug;
+document.getElementById('btn-cuddle').onclick = cuddle;
+document.getElementById('btn-reboot').onclick = ()=>{
+  S.data=70; S.stab=70; S.aff=60; S.alive=true; S.sayCd=0;
+  particles.length=0; bsod.hidden=true; sfx.boot();
+  say("ただいま！ やっぱり melには わたしが ひつようだね♡");
+};
+
+/* ---------- drawing ---------- */
+function heart(x,y,s,color){
+  ctx.fillStyle = color||'#ff4fa3';
+  const u = s/5;
+  ctx.fillRect(x-u, y-u, u*2, u); ctx.fillRect(x-u, y, u*2, u*2);
+  ctx.fillRect(x-u*2, y-u*2, u, u*3); ctx.fillRect(x+u, y-u*2, u, u*3);
+}
+function drawBug(m, t){
+  const bob = Math.sin(t/28)*5;
+  const cx = 180, cy = 165 + bob;
+  ctx.clearRect(0,0,360,280);
+
+  // glow
+  const g = ctx.createRadialGradient(cx,cy,10,cx,cy,120);
+  g.addColorStop(0,'rgba(255,79,163,.28)'); g.addColorStop(1,'rgba(255,79,163,0)');
+  ctx.fillStyle=g; ctx.fillRect(0,0,360,280);
+
+  // twintails
+  ctx.fillStyle='#ff7fbf';
+  ctx.beginPath(); ctx.ellipse(cx-72, cy-38+bob*.6, 26, 44, -.25, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx+72, cy-38+bob*.6, 26, 44,  .25, 0, 7); ctx.fill();
+  // ladybug clips
+  for(const sx of [-1,1]){
+    const lx = cx+sx*72, ly = cy-70+bob*.6;
+    ctx.fillStyle='#e02424'; ctx.beginPath(); ctx.arc(lx,ly,13,0,7); ctx.fill();
+    ctx.fillStyle='#111';
+    ctx.beginPath(); ctx.arc(lx-4,ly-3,2.6,0,7); ctx.fill();
+    ctx.beginPath(); ctx.arc(lx+4,ly-4,2.6,0,7); ctx.fill();
+    ctx.beginPath(); ctx.arc(lx,ly+5,2.6,0,7); ctx.fill();
+    ctx.fillRect(lx-1,ly-13,2,7);
+  }
+  // body
+  ctx.fillStyle='#ff9ecb';
+  ctx.beginPath(); ctx.ellipse(cx, cy, 58, 52, 0, 0, 7); ctx.fill();
+  ctx.strokeStyle='#a13a6e'; ctx.lineWidth=3; ctx.stroke();
+  // blush
+  ctx.fillStyle='rgba(255,60,140,.5)';
+  ctx.beginPath(); ctx.ellipse(cx-34, cy+14, 9, 6, 0, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx+34, cy+14, 9, 6, 0, 0, 7); ctx.fill();
+
+  // face by mood
+  ctx.strokeStyle='#3a0f22'; ctx.fillStyle='#3a0f22'; ctx.lineWidth=3.5;
+  const blink = (t % 240) < 12;
+  if(m==='crashed'){
+    for(const sx of [-1,1]){ // X eyes
+      const ex=cx+sx*22, ey=cy-4;
+      ctx.beginPath(); ctx.moveTo(ex-8,ey-8); ctx.lineTo(ex+8,ey+8);
+      ctx.moveTo(ex+8,ey-8); ctx.lineTo(ex-8,ey+8); ctx.stroke();
+    }
+    ctx.beginPath(); ctx.arc(cx, cy+26, 8, Math.PI, 0); ctx.stroke(); // frown
+  } else if(blink && m!=='glitchy'){
+    for(const sx of [-1,1]){ const ex=cx+sx*22;
+      ctx.beginPath(); ctx.moveTo(ex-8,cy-4); ctx.lineTo(ex+8,cy-4); ctx.stroke(); }
+    ctx.beginPath(); ctx.arc(cx, cy+10, 10, 0, Math.PI); ctx.stroke();
+  } else if(m==='happy'){
+    for(const sx of [-1,1]){ const ex=cx+sx*22; // ^ ^ eyes
+      ctx.beginPath(); ctx.arc(ex, cy+2, 9, Math.PI*1.15, Math.PI*1.85); ctx.stroke(); }
+    ctx.beginPath(); ctx.arc(cx, cy+10, 10, 0, Math.PI); ctx.stroke(); // smile
+  } else if(m==='hungry'){
+    for(const sx of [-1,1]){ const ex=cx+sx*22;
+      ctx.beginPath(); ctx.arc(ex, cy-4, 9, 0, 7); ctx.fill(); }
+    ctx.fillStyle='#7a1e2e';
+    ctx.beginPath(); ctx.ellipse(cx, cy+20, 9, 12, 0, 0, 7); ctx.fill(); // open mouth
+  } else if(m==='glitchy'){
+    const jx = (Math.random()*8-4);
+    for(const sx of [-1,1]){ const ex=cx+sx*22+jx;
+      ctx.save(); ctx.translate(ex,cy-4); ctx.scale(1,.4+Math.random()*.8);
+      ctx.beginPath(); ctx.arc(0,0,9,0,7); ctx.fill(); ctx.restore(); }
+    ctx.strokeStyle='#ff2d2d';
+    ctx.beginPath(); ctx.moveTo(cx-12,cy+18); ctx.lineTo(cx-4,cy+24);
+    ctx.lineTo(cx+4,cy+16); ctx.lineTo(cx+12,cy+24); ctx.stroke(); // wavy mouth
+    // tear lines
+    ctx.strokeStyle='rgba(45,226,255,.8)'; ctx.lineWidth=2;
+    for(let i=0;i<3;i++){ const tx = Math.random()*360;
+      ctx.beginPath(); ctx.moveTo(tx, Math.random()*40); ctx.lineTo(tx, Math.random()*120+40); ctx.stroke(); }
+  } else { // sad
+    for(const sx of [-1,1]){ const ex=cx+sx*22;
+      ctx.beginPath(); ctx.arc(ex, cy, 8, Math.PI*1.1, Math.PI*1.9); ctx.stroke(); }
+    ctx.beginPath(); ctx.arc(cx, cy+28, 8, Math.PI, 0); ctx.stroke(); // frown
+  }
+
+  // particles
+  for(let i=particles.length-1;i>=0;i--){
+    const p = particles[i];
+    p.x+=p.vx; p.y+=p.vy; p.life--;
+    if(p.life<=0){ particles.splice(i,1); continue; }
+    ctx.globalAlpha = Math.min(1, p.life/40);
+    if(p.kind==='heart') heart(p.x,p.y,10);
+    else if(p.kind==='data'){ ctx.fillStyle='#2de2ff'; ctx.fillRect(p.x-3,p.y-3,6,6); }
+    else { ctx.fillStyle='#9dff9d'; ctx.fillRect(p.x-2,p.y-6,4,12); }
+    ctx.globalAlpha = 1;
+  }
+}
+
+/* ---------- bars ---------- */
+function setBar(id, v){
+  const el = document.getElementById(id);
+  el.querySelector('i').style.width = v+'%';
+  el.classList.toggle('low', v < 30);
+}
+
+/* ---------- main loop ---------- */
+function fmt(s){ return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); }
+setInterval(()=>{
+  if(!S.alive) return;
+  S.t++;
+  S.data = Math.max(0, S.data - 0.34);
+  S.stab = Math.max(0, S.stab - (S.data<=0 ? 0.5 : 0.22));
+  S.aff  = Math.max(0, S.aff  - 0.15);
+  document.getElementById('uptime').textContent = 'uptime '+fmt(S.t);
+
+  if(S.stab<=0){
+    S.alive=false; sfx.crash(); bsod.hidden=false;
+    stage.classList.remove('glitch');
+    return;
+  }
+  const m = mood();
+  stage.classList.toggle('glitch', m==='glitchy');
+  setBar('bar-data', S.data); setBar('bar-stab', S.stab); setBar('bar-aff', S.aff);
+
+  if(--S.sayCd<=0){
+    S.sayCd = 6 + Math.floor(Math.random()*4);
+    const pool = LINES[m] || LINES.idle;
+    sayRandom(pool);
+  }
+}, 1000);
+
+(function anim(){
+  drawBug(mood(), performance.now()/16|0);
+  requestAnimationFrame(anim);
+})();
+setBar('bar-data', S.data); setBar('bar-stab', S.stab); setBar('bar-aff', S.aff);
+</script>
+</body>
+</html>
